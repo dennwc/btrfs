@@ -1,13 +1,15 @@
 package btrfs
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/dennwc/ioctl"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"github.com/dennwc/ioctl"
 )
 
 const SuperMagic = 0x9123683E
@@ -81,6 +83,28 @@ func (f *FS) Info() (out Info, err error) {
 			CloneAlignment: arg.clone_alignment,
 		}
 	}
+	return
+}
+
+type DevInfo struct {
+	UUID       UUID
+	BytesUsed  uint64
+	TotalBytes uint64
+	Path       string
+}
+
+func (f *FS) GetDevInfo(id uint64) (out DevInfo, err error) {
+	var arg btrfs_ioctl_dev_info_args
+	arg.devid = id
+
+	if err = ioctl.Do(f.f, _BTRFS_IOC_DEV_INFO, &arg); err != nil {
+		return
+	}
+	out.UUID = arg.uuid
+	out.BytesUsed = arg.bytes_used
+	out.TotalBytes = arg.total_bytes
+	out.Path = string(bytes.Trim(arg.path[:], "\x00"))
+
 	return
 }
 
