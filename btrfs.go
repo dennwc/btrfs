@@ -1,7 +1,6 @@
 package btrfs
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -103,7 +102,7 @@ func (f *FS) GetDevInfo(id uint64) (out DevInfo, err error) {
 	out.UUID = arg.uuid
 	out.BytesUsed = arg.bytes_used
 	out.TotalBytes = arg.total_bytes
-	out.Path = string(bytes.Trim(arg.path[:], "\x00"))
+	out.Path = stringFromBytes(arg.path[:])
 
 	return
 }
