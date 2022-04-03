@@ -1,13 +1,15 @@
 package btrfs
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/dennwc/btrfs/mtab"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"github.com/dennwc/btrfs/mtab"
 )
 
 func isBtrfs(path string) (bool, error) {
@@ -94,4 +96,11 @@ func treeSearchRaw(mnt *os.File, key btrfs_ioctl_search_key) (out []searchResult
 		buf = buf[h.len:]
 	}
 	return out, nil
+}
+
+func stringFromBytes(input []byte) string {
+	if i := bytes.IndexByte(input, 0); i >= 0 {
+		input = input[:i]
+	}
+	return string(input)
 }
