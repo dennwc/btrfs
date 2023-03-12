@@ -29,6 +29,11 @@ func Open(path string, ro bool) (*FS, error) {
 	)
 	if ro {
 		dir, err = os.OpenFile(path, os.O_RDONLY|syscall.O_NOATIME, 0644)
+		if err != nil {
+			// Try without O_NOATIME as it requires ownership of the file
+			// or other priviliges
+			dir, err = os.OpenFile(path, os.O_RDONLY, 0644)
+		}
 	} else {
 		dir, err = os.Open(path)
 	}
