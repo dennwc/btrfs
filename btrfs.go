@@ -11,7 +11,7 @@ import (
 	"github.com/dennwc/ioctl"
 )
 
-const SuperMagic = 0x9123683E
+const SuperMagic uint32 = 0x9123683E
 
 func CloneFile(dst, src *os.File) error {
 	return iocClone(dst, src)

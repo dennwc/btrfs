@@ -17,7 +17,8 @@ func isBtrfs(path string) (bool, error) {
 	if err := syscall.Statfs(path, &stfs); err != nil {
 		return false, &os.PathError{Op: "statfs", Path: path, Err: err}
 	}
-	return int64(stfs.Type) == SuperMagic, nil
+	fsType := uint32(stfs.Type)
+	return fsType == SuperMagic, nil
 }
 
 func findMountRoot(path string) (string, error) {
