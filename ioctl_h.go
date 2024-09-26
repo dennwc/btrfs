@@ -616,6 +616,14 @@ var (
 	_BTRFS_IOC_GET_FEATURES           = ioctl.IOR(ioctlMagic, 57, unsafe.Sizeof(btrfs_ioctl_feature_flags{}))
 	_BTRFS_IOC_SET_FEATURES           = ioctl.IOW(ioctlMagic, 57, unsafe.Sizeof([2]btrfs_ioctl_feature_flags{}))
 	_BTRFS_IOC_GET_SUPPORTED_FEATURES = ioctl.IOR(ioctlMagic, 57, unsafe.Sizeof([3]btrfs_ioctl_feature_flags{}))
+	_BTRFS_IOC_RM_DEV_V2              = ioctl.IOW(ioctlMagic, 58, unsafe.Sizeof(btrfs_ioctl_vol_args_v2{}))
+	_BTRFS_IOC_LOGICAL_INO_V2         = ioctl.IOWR(ioctlMagic, 59, unsafe.Sizeof(btrfs_ioctl_logical_ino_args{}))
+	_BTRFS_IOC_GET_SUBVOL_INFO        = ioctl.IOR(ioctlMagic, 60, unsafe.Sizeof(btrfs_ioctl_get_subvol_info_args{}))
+	_BTRFS_IOC_GET_SUBVOL_ROOTREF     = ioctl.IOWR(ioctlMagic, 61, unsafe.Sizeof(btrfs_ioctl_get_subvol_rootref_args{}))
+	_BTRFS_IOC_INO_LOOKUP_USER        = ioctl.IOWR(ioctlMagic, 62, unsafe.Sizeof(btrfs_ioctl_ino_lookup_user_args{}))
+	_BTRFS_IOC_SNAP_DESTROY_V2        = ioctl.IOW(ioctlMagic, 63, unsafe.Sizeof(btrfs_ioctl_vol_args_v2{}))
+	_BTRFS_IOC_ENCODED_READ           = ioctl.IOR(ioctlMagic, 64, unsafe.Sizeof(btrfs_ioctl_encoded_io_args{}))
+	_BTRFS_IOC_ENCODED_WRITE          = ioctl.IOW(ioctlMagic, 64, unsafe.Sizeof(btrfs_ioctl_encoded_io_args{}))
 )
 
 func iocSnapCreate(f *os.File, in *btrfs_ioctl_vol_args) error {
