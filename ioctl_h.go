@@ -96,17 +96,21 @@ const subvolNameMax = 4039
 
 type SubvolFlags uint64
 
+// Match flags like GetFlags translates in fs/btrfs/ioctl.c `btrfs_ioctl_subvol_getflags`
+const subvolReadOnlyMask = (SubvolReadOnly | SubvolRootReadOnly)
+
 func (f SubvolFlags) ReadOnly() bool {
-	return f&SubvolReadOnly != 0
+	return f&subvolReadOnlyMask != 0
 }
 func (f SubvolFlags) String() string {
 	if f == 0 {
 		return "<nil>"
 	}
 	var out []string
-	if f&SubvolReadOnly != 0 {
+
+	if f.ReadOnly() {
 		out = append(out, "RO")
-		f = f & (^SubvolReadOnly)
+		f = f & (^subvolReadOnlyMask)
 	}
 	if f != 0 {
 		out = append(out, "0x"+strconv.FormatInt(int64(f), 16))
@@ -123,8 +127,9 @@ func (f SubvolFlags) String() string {
 // - BTRFS_IOC_SUBVOL_GETFLAGS
 // - BTRFS_IOC_SUBVOL_SETFLAGS
 const (
-	subvolCreateAsync   = SubvolFlags(1 << 0)
-	SubvolReadOnly      = SubvolFlags(1 << 1)
+	subvolCreateAsync   = SubvolFlags(1 << 0) // deprecated in 5.7
+	SubvolRootReadOnly  = SubvolFlags(1 << 0) // BTRFS_ROOT_SUBVOL_RDONLY, only present in search result copies
+	SubvolReadOnly      = SubvolFlags(1 << 1) // BTRFS_SUBVOL_RDONLY
 	subvolQGroupInherit = SubvolFlags(1 << 2)
 )
 
