@@ -253,6 +253,8 @@ func listSubVolumes(f *os.File, filter func(SubvolInfo) bool) (map[objectID]Subv
 type SubvolInfo struct {
 	RootID uint64
 
+	Flags SubvolFlags
+
 	UUID         UUID
 	ParentUUID   UUID
 	ReceivedUUID UUID
@@ -274,6 +276,7 @@ func (s *SubvolInfo) fillFromItem(it *rootItem) {
 	s.UUID = it.UUID
 	s.ReceivedUUID = it.ReceivedUUID
 	s.ParentUUID = it.ParentUUID
+	s.Flags = SubvolFlags(it.Flags)
 
 	s.CTime = it.CTime
 	s.OTime = it.OTime
