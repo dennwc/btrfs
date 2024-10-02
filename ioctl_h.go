@@ -333,6 +333,37 @@ func (arg *btrfs_ioctl_ino_lookup_args) Name() string {
 	return string(arg.name[:n])
 }
 
+const _BTRFS_INO_LOOKUP_USER_PATH_MAX = (_BTRFS_INO_LOOKUP_PATH_MAX - _BTRFS_VOL_NAME_MAX - 1)
+
+type btrfs_ioctl_ino_lookup_user_args struct {
+	dirid    objectID                              // in
+	objectid objectID                              // in
+	name     [_BTRFS_VOL_NAME_MAX]byte             // out
+	path     [_BTRFS_INO_LOOKUP_USER_PATH_MAX]byte // out
+}
+
+func (arg *btrfs_ioctl_ino_lookup_user_args) Name() string {
+	n := 0
+	for i, b := range arg.name {
+		if b == '\x00' {
+			n = i
+			break
+		}
+	}
+	return string(arg.name[:n])
+}
+
+func (arg *btrfs_ioctl_ino_lookup_user_args) Path() string {
+	n := 0
+	for i, b := range arg.path {
+		if b == '\x00' {
+			n = i
+			break
+		}
+	}
+	return string(arg.path[:n])
+}
+
 type btrfs_ioctl_search_key struct {
 	tree_id objectID // which root are we searching.  0 is the tree of tree roots
 	// keys returned will be >= min and <= max
@@ -567,6 +598,62 @@ type btrfs_ioctl_send_args struct {
 	_                   [4]uint64 // in
 }
 
+const (
+	_BTRFS_VOL_NAME_MAX = 0xff
+)
+
+type btrfs_ioctl_get_subvol_info_args struct {
+	treeid     objectID                      //
+	name       [_BTRFS_VOL_NAME_MAX + 1]byte // out
+	parent_id  objectID                      //
+	dirid      objectID                      //
+	generation uint64                        //
+	flags      SubvolFlags                   //
+
+	uuid          UUID //
+	parent_uuid   UUID //
+	received_uuid UUID //
+
+	ctransid uint64 //
+	otransid uint64 //
+	stransid uint64 //
+	rtransid uint64 //
+
+	ctime btrfs_timespec_raw //
+	otime btrfs_timespec_raw //
+	stime btrfs_timespec_raw //
+	rtime btrfs_timespec_raw //
+
+	_ [8]uint64
+}
+
+func (arg *btrfs_ioctl_get_subvol_info_args) Name() string {
+	n := 0
+	for i, b := range arg.name {
+		if b == '\x00' {
+			n = i
+			break
+		}
+	}
+	return string(arg.name[:n])
+}
+
+const (
+	_BTRFS_MAX_ROOTREF_BUFFER_NUM = 0xff
+)
+
+type btrfs_ioctl_get_subvol_rootref_args struct {
+	min_treeid objectID
+
+	rootref [_BTRFS_MAX_ROOTREF_BUFFER_NUM]struct {
+		treeid objectID
+		dirid  objectID
+	}
+	num_items uint8
+
+	_ [7]uint8
+}
+
 var (
 	_BTRFS_IOC_SNAP_CREATE            = ioctl.IOW(ioctlMagic, 1, unsafe.Sizeof(btrfs_ioctl_vol_args{}))
 	_BTRFS_IOC_DEFRAG                 = ioctl.IOW(ioctlMagic, 2, unsafe.Sizeof(btrfs_ioctl_vol_args{}))
@@ -621,6 +708,15 @@ var (
 	_BTRFS_IOC_GET_FEATURES           = ioctl.IOR(ioctlMagic, 57, unsafe.Sizeof(btrfs_ioctl_feature_flags{}))
 	_BTRFS_IOC_SET_FEATURES           = ioctl.IOW(ioctlMagic, 57, unsafe.Sizeof([2]btrfs_ioctl_feature_flags{}))
 	_BTRFS_IOC_GET_SUPPORTED_FEATURES = ioctl.IOR(ioctlMagic, 57, unsafe.Sizeof([3]btrfs_ioctl_feature_flags{}))
+	_BTRFS_IOC_RM_DEV_V2              = ioctl.IOW(ioctlMagic, 58, unsafe.Sizeof(btrfs_ioctl_vol_args_v2{}))
+	_BTRFS_IOC_LOGICAL_INO_V2         = ioctl.IOWR(ioctlMagic, 59, unsafe.Sizeof(btrfs_ioctl_logical_ino_args{}))
+	_BTRFS_IOC_GET_SUBVOL_INFO        = ioctl.IOR(ioctlMagic, 60, unsafe.Sizeof(btrfs_ioctl_get_subvol_info_args{}))
+	_BTRFS_IOC_GET_SUBVOL_ROOTREF     = ioctl.IOWR(ioctlMagic, 61, unsafe.Sizeof(btrfs_ioctl_get_subvol_rootref_args{}))
+	_BTRFS_IOC_INO_LOOKUP_USER        = ioctl.IOWR(ioctlMagic, 62, unsafe.Sizeof(btrfs_ioctl_ino_lookup_user_args{}))
+	_BTRFS_IOC_SNAP_DESTROY_V2        = ioctl.IOW(ioctlMagic, 63, unsafe.Sizeof(btrfs_ioctl_vol_args_v2{}))
+	// TODO: Requires IOVEC definitions
+	// _BTRFS_IOC_ENCODED_READ           = ioctl.IOR(ioctlMagic, 64, unsafe.Sizeof(btrfs_ioctl_encoded_io_args{}))
+	// _BTRFS_IOC_ENCODED_WRITE          = ioctl.IOW(ioctlMagic, 64, unsafe.Sizeof(btrfs_ioctl_encoded_io_args{}))
 )
 
 func iocSnapCreate(f *os.File, in *btrfs_ioctl_vol_args) error {
