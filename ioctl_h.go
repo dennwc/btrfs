@@ -2,12 +2,12 @@ package btrfs
 
 import (
 	"encoding/binary"
-	"encoding/hex"
-	"github.com/dennwc/ioctl"
+	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"unsafe"
+
+	"github.com/dennwc/ioctl"
 )
 
 var order = binary.LittleEndian
@@ -30,27 +30,12 @@ func (id UUID) String() string {
 	if id.IsZero() {
 		return "<zero>"
 	}
-	buf := make([]byte, UUIDSize*2+4)
-	i := 0
-	i += hex.Encode(buf[i:], id[:4])
-	buf[i] = '-'
-	i++
-	i += hex.Encode(buf[i:], id[4:6])
-	buf[i] = '-'
-	i++
-	i += hex.Encode(buf[i:], id[6:8])
-	buf[i] = '-'
-	i++
-	i += hex.Encode(buf[i:], id[8:10])
-	buf[i] = '-'
-	i++
-	i += hex.Encode(buf[i:], id[10:])
-	return string(buf)
+	return fmt.Sprintf("%x-%x-%x-%x-%x", id[:4], id[4:6], id[6:8], id[8:10], id[10:])
 }
 
 type FSID [FSIDSize]byte
 
-func (id FSID) String() string { return hex.EncodeToString(id[:]) }
+func (id FSID) String() string { return fmt.Sprintf("%x", id[:]) }
 
 const volNameMax = 4087
 
@@ -113,7 +98,7 @@ func (f SubvolFlags) String() string {
 		f = f & (^subvolReadOnlyMask)
 	}
 	if f != 0 {
-		out = append(out, "0x"+strconv.FormatInt(int64(f), 16))
+		out = append(out, fmt.Sprintf("%#x", f))
 	}
 	return strings.Join(out, "|")
 }
