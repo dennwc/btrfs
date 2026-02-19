@@ -149,6 +149,13 @@ func (f *FS) GetDevStats(id uint64) (out DevStats, err error) {
 	}
 	return
 }
+func (f *FS) ResetDevStats(id uint64) (err error) {
+	var arg btrfs_ioctl_get_dev_stats
+	arg.devid = id
+	arg.nr_items = _BTRFS_DEV_STAT_VALUES_MAX
+	arg.flags = _BTRFS_DEV_STATS_RESET
+	return ioctl.Do(f.f, _BTRFS_IOC_GET_DEV_STATS, &arg)
+}
 
 type FSFeatureFlags struct {
 	Compatible   FeatureFlags
