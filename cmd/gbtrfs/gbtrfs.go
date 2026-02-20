@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/dennwc/btrfs"
@@ -13,8 +14,13 @@ func init() {
 		SubvolumeCmd,
 		SendCmd,
 		ReceiveCmd,
+		ScrubCmd,
 	)
-
+	ScrubCmd.AddCommand(
+		ScrubStartCmd,
+		ScrubStatusCmd,
+		ScrubCancelCmd,
+	)
 	SubvolumeCmd.AddCommand(
 		SubvolumeCreateCmd,
 		SubvolumeDeleteCmd,
@@ -33,7 +39,9 @@ var SubvolumeCmd = &cobra.Command{
 	Use:     "subvolume <command> <args>",
 	Aliases: []string{"subvol", "sub", "sv"},
 }
-
+var ScrubCmd = &cobra.Command{
+	Use: "scrub <command> <args>",
+}
 var SubvolumeCreateCmd = &cobra.Command{
 	Use:   "create [-i <qgroupid>] [<dest>/]<name>",
 	Short: "Create a subvolume",
@@ -112,6 +120,92 @@ into <mount>.`,
 			return fmt.Errorf("expected one destination argument")
 		}
 		return btrfs.Receive(os.Stdin, args[0])
+	},
+}
+
+var ScrubStartCmd = &cobra.Command{
+	Use:   "start <mount>",
+	Short: "Start a scrub",
+	Long:  `Start a scrub on all devices that mount the given path`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("mount not specified")
+		} else if len(args) > 1 {
+			return fmt.Errorf("only one mount path is allowed")
+		}
+		fs, err := btrfs.Open(args[0], false)
+		if err != nil {
+			return err
+		}
+		info, err := fs.Info()
+		if err != nil {
+			return err
+		}
+		for i := uint64(1); i <= info.MaxID; i++ {
+			fmt.Println("starting scrub: ", i)
+			if err := fs.ScrubStart(i, 0, math.MaxUint64); err != nil {
+				fmt.Println("starting scrub: ", i, " failed", err)
+				return err
+			}
+			fmt.Println("starting scrub: ", i, " ok")
+		}
+		fmt.Println("starting scrub done")
+		return nil
+	},
+}
+var ScrubCancelCmd = &cobra.Command{
+	Use:   "cancel <mount>",
+	Short: "Start a scrub",
+	Long:  `Start a scrub on all devices that mount the given path`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("mount not specified")
+		} else if len(args) > 1 {
+			return fmt.Errorf("only one mount path is allowed")
+		}
+		fs, err := btrfs.Open(args[0], false)
+		if err != nil {
+			return err
+		}
+		info, err := fs.Info()
+		if err != nil {
+			return err
+		}
+		for i := uint64(1); i <= info.MaxID; i++ {
+			if err := fs.ScrubCancel(i); err != nil {
+				return err
+			}
+		}
+		return nil
+	},
+}
+var ScrubStatusCmd = &cobra.Command{
+	Use:   "status <mount>",
+	Short: "Start a scrub",
+	Long:  `Start a scrub on all devices that mount the given path`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("mount not specified")
+		} else if len(args) > 1 {
+			return fmt.Errorf("only one mount path is allowed")
+		}
+		fs, err := btrfs.Open(args[0], false)
+		if err != nil {
+			return err
+		}
+		info, err := fs.Info()
+		if err != nil {
+			return err
+		}
+		for i := uint64(1); i <= info.MaxID; i++ {
+			progress, err := fs.ScrubStatus(i)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("scrub status on device %d: %+v", i, progress)
+			fmt.Println()
+		}
+		return nil
 	},
 }
 

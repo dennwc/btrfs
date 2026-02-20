@@ -157,6 +157,77 @@ func (f *FS) ResetDevStats(id uint64) (err error) {
 	return ioctl.Do(f.f, _BTRFS_IOC_GET_DEV_STATS, &arg)
 }
 
+type ScrubProgress struct {
+	DataExtentsScrubbed uint64 // # of data extents scrubbed
+	TreeExtentsScrubbed uint64 // # of tree extents scrubbed
+	DataBytesScrubbed   uint64 // # of data bytes scrubbed
+	TreeBytesScrubbed   uint64 // # of tree bytes scrubbed
+	ReadErrors          uint64 // # of read errors encountered (EIO)
+	CsumErrors          uint64 // # of failed csum checks
+	// # of occurences, where the metadata of a tree block did not match the expected values, like generation or logical
+	VerifyErrors uint64
+	// # of 4k data block for which no csum is present, probably the result of data written with nodatasum
+	NoCsum              uint64
+	CsumDiscards        uint64 // # of csum for which no data was found in the extent tree.
+	SuperErrors         uint64 // # of bad super blocks encountered
+	MallocErrors        uint64 // # of internal kmalloc errors. These will likely cause an incomplete scrub
+	UncorrectableErrors uint64 // # of errors where either no intact copy was found or the writeback failed
+	CorrectedErrors     uint64 // # of errors corrected
+	// last physical address scrubbed. In case a scrub was aborted, this can be used to restart the scrub
+	LastPhysical uint64
+	// # of occurences where a read for a full (64k) bio failed, but the re-
+	// check succeeded for each 4k piece. Intermittent error.
+	UnverifiedErrors uint64
+}
+
+// Start a scrub on the given device, starting at start blocks and ending on end blocks
+// If you want to scan the whole device, set start to 0 and end to the maximal value of uint64( for example via math.MaxUint64)
+// Another option is to resume a earlier interrupted scrub, by setting the start to the same value as reported in LastPhysical (can be retrieved via .ScrubStatus)
+// WARNING: This method WILL BLOCK until the scrub is done, or the scrub is cancelled
+// Scrub operations requiere CAP_SYSADMIN or root
+func (f *FS) ScrubStart(dev uint64, start uint64, end uint64) error {
+	var arg btrfs_ioctl_scrub_args
+	arg.devid = dev
+	arg.flags = 0
+	arg.start = start
+	arg.end = end
+	return iocScrub(f.f, &arg)
+}
+
+// Cancel a scrub on the given device
+// Scrub operations requiere CAP_SYSADMIN or root
+func (f *FS) ScrubCancel(dev uint64) error {
+	return iocScrubCancel(f.f)
+}
+
+// Get the progress of a scrub on the given device
+// Scrub operations requiere CAP_SYSADMIN or root
+func (f *FS) ScrubStatus(dev uint64) (ScrubProgress, error) {
+	var arg btrfs_ioctl_scrub_args
+	arg.devid = dev
+	arg.flags = 0
+	if err := iocScrubProgress(f.f, &arg); err != nil {
+		return ScrubProgress{}, err
+	}
+	return ScrubProgress{
+		arg.progress.data_extents_scrubbed,
+		arg.progress.tree_extents_scrubbed,
+		arg.progress.data_bytes_scrubbed,
+		arg.progress.tree_bytes_scrubbed,
+		arg.progress.read_errors,
+		arg.progress.csum_errors,
+		arg.progress.verify_errors,
+		arg.progress.no_csum,
+		arg.progress.csum_discards,
+		arg.progress.super_errors,
+		arg.progress.malloc_errors,
+		arg.progress.uncorrectable_errors,
+		arg.progress.corrected_errors,
+		arg.progress.last_physical,
+		arg.progress.unverified_errors,
+	}, nil
+}
+
 type FSFeatureFlags struct {
 	Compatible   FeatureFlags
 	CompatibleRO FeatureFlags
