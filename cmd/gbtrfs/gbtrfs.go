@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -15,6 +16,7 @@ func init() {
 		SendCmd,
 		ReceiveCmd,
 		ScrubCmd,
+		StatsCmd,
 	)
 	ScrubCmd.AddCommand(
 		ScrubStartCmd,
@@ -26,7 +28,10 @@ func init() {
 		SubvolumeDeleteCmd,
 		SubvolumeListCmd,
 	)
-
+	StatsCmd.AddCommand(StatsGet, StatsReset)
+	StatsGet.Flags().BoolP("reset", "z", false, "reset the stats after reading")
+	StatsGet.Flags().BoolP("check", "c", false, "return a non zero code if any stat counter is not zero")
+	StatsGet.Flags().BoolP("tabular", "T", false, "return a non zero code if any stat counter is not zero")
 	SendCmd.Flags().StringP("parent", "p", "", "Send an incremental stream from <parent> to <subvol>.")
 }
 
@@ -35,6 +40,10 @@ var RootCmd = &cobra.Command{
 	Short: "Use --help as an argument for information on a specific group or command.",
 }
 
+var StatsCmd = &cobra.Command{
+	Use:     "stats <command> <args>",
+	Aliases: []string{"statistics"},
+}
 var SubvolumeCmd = &cobra.Command{
 	Use:     "subvolume <command> <args>",
 	Aliases: []string{"subvol", "sub", "sv"},
@@ -125,8 +134,10 @@ into <mount>.`,
 
 var ScrubStartCmd = &cobra.Command{
 	Use:   "start <mount>",
-	Short: "Start a scrub",
-	Long:  `Start a scrub on all devices that mount the given path`,
+	Short: "Start scrubs",
+	Long: `Start sscrub on all devices that mount the given path e.g.
+	on a raid1 configuration it would start the scrub on both devices,
+	while on a non raid configuration only on the single device`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("mount not specified")
@@ -155,8 +166,10 @@ var ScrubStartCmd = &cobra.Command{
 }
 var ScrubCancelCmd = &cobra.Command{
 	Use:   "cancel <mount>",
-	Short: "Start a scrub",
-	Long:  `Start a scrub on all devices that mount the given path`,
+	Short: "Cancel scrubs",
+	Long: `Cancel a scrub on all devices that back the given mount e.g.
+	on a raid1 configuration it would start the scrub on both devices,
+	while on a non raid configuration only on the single device`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("mount not specified")
@@ -181,8 +194,9 @@ var ScrubCancelCmd = &cobra.Command{
 }
 var ScrubStatusCmd = &cobra.Command{
 	Use:   "status <mount>",
-	Short: "Start a scrub",
-	Long:  `Start a scrub on all devices that mount the given path`,
+	Short: "Print the status of scrubs",
+	Long: `Print the status of scrubs on all devices that back the given mount
+	e.g. on  raid1 configuration this will display the scrub status on both devices, on a non raid configuratrion only the scrub status of the single device`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return fmt.Errorf("mount not specified")
@@ -207,6 +221,192 @@ var ScrubStatusCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+var StatsReset = &cobra.Command{
+	Use:   "reset <mount>",
+	Short: "Reset device stats",
+	Long:  `Reset device stats on the given device`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("mount not specified")
+		} else if len(args) > 1 {
+			return fmt.Errorf("only one mount path is allowed")
+		}
+		fs, err := btrfs.Open(args[0], false)
+		if err != nil {
+			return err
+		}
+		info, err := fs.Info()
+		if err != nil {
+			return err
+		}
+		for i := uint64(1); i <= info.MaxID; i++ {
+			if err := fs.ResetDevStats(i); err != nil {
+				return err
+			}
+		}
+		return nil
+	},
+}
+var StatsGet = &cobra.Command{
+	Use:   "get <mount>",
+	Short: "Get device stats",
+	Long:  `Get device stats on the given device`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) == 0 {
+			return fmt.Errorf("mount not specified")
+		} else if len(args) > 1 {
+			return fmt.Errorf("only one mount path is allowed")
+		}
+		resetFlag, err := cmd.Flags().GetBool("reset")
+		if err != nil {
+			return err
+		}
+		returnErrorOnNonZeroValues, err := cmd.Flags().GetBool("check")
+		if err != nil {
+			return err
+		}
+		tabular, err := cmd.Flags().GetBool("tabular")
+		if err != nil {
+			return err
+		}
+		flags := uint64(0)
+		if resetFlag {
+			fmt.Println("Stats will be reset after reading")
+			flags = btrfs.DevStatsFlagsReset
+		}
+
+		fs, err := btrfs.Open(args[0], false)
+		if err != nil {
+			return err
+		}
+		info, err := fs.Info()
+		if err != nil {
+			return err
+		}
+		if tabular {
+
+		}
+		hadErros := false
+		stats := make([]DeviceWithStats, 0)
+		longestPath := 0
+		for i := uint64(1); i <= info.MaxID; i++ {
+			devInfo, err := fs.GetDevInfo(i)
+			if err != nil {
+				return err
+			}
+
+			stat, err := fs.GetDevStatsWithFlags(i, flags)
+			if err != nil {
+				return err
+			}
+			if stat.CorruptionErrs > 0 {
+				hadErros = true
+			}
+			if stat.FlushErrs > 0 {
+				hadErros = true
+			}
+			if stat.GenerationErrs > 0 {
+				hadErros = true
+			}
+			if stat.ReadErrs > 0 {
+				hadErros = true
+			}
+			if stat.WriteErrs > 0 {
+				hadErros = true
+			}
+			for _, v := range stat.Unknown {
+				if v > 0 {
+					hadErros = true
+				}
+			}
+			if len(devInfo.Path) > longestPath {
+				longestPath = len(devInfo.Path)
+			}
+			stats = append(stats, DeviceWithStats{
+				Stats: stat,
+				Id:    i,
+				Path:  devInfo.Path,
+			})
+		}
+		if tabular {
+			fmt.Print("Id")
+			fmt.Print(" ")
+			fmt.Print("Path")
+			RepeatChar(longestPath-len("Path"), " ")
+			fmt.Print(" ")
+			fmt.Print("Write errors")
+			fmt.Print(" ")
+			fmt.Print("Read errors")
+			fmt.Print(" ")
+			fmt.Print("Flush errors")
+			fmt.Print(" ")
+			fmt.Print("Corruption errors")
+			fmt.Print(" ")
+			fmt.Print("Generation errors")
+			fmt.Println("")
+			RepeatChar(len("Id"), "-")
+			fmt.Print(" ")
+			RepeatChar(longestPath, "-")
+			fmt.Print(" ")
+			RepeatChar(len("Write errors"), "-")
+			fmt.Print(" ")
+			RepeatChar(len("Read errors"), "-")
+			fmt.Print(" ")
+			RepeatChar(len("Flush errors"), "-")
+			fmt.Print(" ")
+			RepeatChar(len("Corruption errors"), "-")
+			fmt.Print(" ")
+			RepeatChar(len("Generation errors"), "-")
+			fmt.Println(" ")
+			for _, v := range stats {
+				fmt.Printf("%d  %s", v.Id, v.Path)
+				fmt.Print(" ")
+				WriteSpaced("Write errors", v.Stats.WriteErrs)
+				fmt.Print(" ")
+				WriteSpaced("Read errors", v.Stats.ReadErrs)
+				fmt.Print(" ")
+				WriteSpaced("Flush errors", v.Stats.FlushErrs)
+				fmt.Print(" ")
+				WriteSpaced("Corruption errors", v.Stats.CorruptionErrs)
+				fmt.Print(" ")
+				WriteSpaced("Generation errors", v.Stats.GenerationErrs)
+				fmt.Println("")
+			}
+		} else {
+			for _, v := range stats {
+				fmt.Printf("[%s].write_io_errs:   %d", v.Path, v.Stats.WriteErrs)
+				fmt.Println()
+				fmt.Printf("[%s].read_io_errs:    %d", v.Path, v.Stats.ReadErrs)
+				fmt.Println()
+				fmt.Printf("[%s].corruption_errs: %d", v.Path, v.Stats.CorruptionErrs)
+				fmt.Println()
+				fmt.Printf("[%s].generation_errs: %d", v.Path, v.Stats.GenerationErrs)
+				fmt.Println()
+			}
+		}
+		if hadErros && returnErrorOnNonZeroValues {
+			return errors.New("some stats had non zero values")
+		}
+		return nil
+	},
+}
+
+func WriteSpaced(header string, value uint64) {
+	valString := fmt.Sprintf("%d", value)
+	RepeatChar(len(header)-len(valString), " ")
+	fmt.Print(valString)
+}
+func RepeatChar(length int, char string) {
+	for i := 0; i < length; i++ {
+		fmt.Printf(char)
+	}
+}
+
+type DeviceWithStats struct {
+	Path  string
+	Id    uint64
+	Stats btrfs.DevStats
 }
 
 func main() {
