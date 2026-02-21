@@ -224,7 +224,7 @@ var ScrubStatusCmd = &cobra.Command{
 	},
 }
 var StatsReset = &cobra.Command{
-	Use:   "reset <mount>",
+	Use:   "stats-reset <mount>",
 	Short: "Reset device stats",
 	Long:  `Reset device stats on the given device`,
 	RunE: func(cmd *cobra.Command, args []string) error {
