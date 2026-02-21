@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 
 	"github.com/dennwc/btrfs"
 	"github.com/spf13/cobra"
@@ -16,7 +17,7 @@ func init() {
 		SendCmd,
 		ReceiveCmd,
 		ScrubCmd,
-		StatsCmd,
+		DeviceCmd,
 	)
 	ScrubCmd.AddCommand(
 		ScrubStartCmd,
@@ -28,7 +29,7 @@ func init() {
 		SubvolumeDeleteCmd,
 		SubvolumeListCmd,
 	)
-	StatsCmd.AddCommand(StatsGet, StatsReset)
+	DeviceCmd.AddCommand(StatsGet, StatsReset)
 	StatsGet.Flags().BoolP("reset", "z", false, "reset the stats after reading")
 	StatsGet.Flags().BoolP("check", "c", false, "return a non zero code if any stat counter is not zero")
 	StatsGet.Flags().BoolP("tabular", "T", false, "return a non zero code if any stat counter is not zero")
@@ -40,8 +41,8 @@ var RootCmd = &cobra.Command{
 	Short: "Use --help as an argument for information on a specific group or command.",
 }
 
-var StatsCmd = &cobra.Command{
-	Use:     "stats <command> <args>",
+var DeviceCmd = &cobra.Command{
+	Use:     "device <command> <args>",
 	Aliases: []string{"statistics"},
 }
 var SubvolumeCmd = &cobra.Command{
@@ -249,7 +250,7 @@ var StatsReset = &cobra.Command{
 	},
 }
 var StatsGet = &cobra.Command{
-	Use:   "get <mount>",
+	Use:   "stats <mount>",
 	Short: "Get device stats",
 	Long:  `Get device stats on the given device`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -333,7 +334,7 @@ var StatsGet = &cobra.Command{
 			fmt.Print("Id")
 			fmt.Print(" ")
 			fmt.Print("Path")
-			RepeatChar(longestPath-len("Path"), " ")
+			fmt.Print(strings.Repeat(" ", longestPath-len("Path")))
 			fmt.Print(" ")
 			fmt.Print("Write errors")
 			fmt.Print(" ")
@@ -345,19 +346,19 @@ var StatsGet = &cobra.Command{
 			fmt.Print(" ")
 			fmt.Print("Generation errors")
 			fmt.Println("")
-			RepeatChar(len("Id"), "-")
+			fmt.Print(strings.Repeat("-", len("Id")))
 			fmt.Print(" ")
-			RepeatChar(longestPath, "-")
+			fmt.Print(strings.Repeat("-", longestPath))
 			fmt.Print(" ")
-			RepeatChar(len("Write errors"), "-")
+			fmt.Print(strings.Repeat("-", len("Write errors")))
 			fmt.Print(" ")
-			RepeatChar(len("Read errors"), "-")
+			fmt.Print(strings.Repeat("-", len("Read errors")))
 			fmt.Print(" ")
-			RepeatChar(len("Flush errors"), "-")
+			fmt.Print(strings.Repeat("-", len("Flush errors")))
 			fmt.Print(" ")
-			RepeatChar(len("Corruption errors"), "-")
+			fmt.Print(strings.Repeat("-", len("Corruption errors")))
 			fmt.Print(" ")
-			RepeatChar(len("Generation errors"), "-")
+			fmt.Print(strings.Repeat("-", len("Generation errors")))
 			fmt.Println(" ")
 			for _, v := range stats {
 				fmt.Printf("%d  %s", v.Id, v.Path)
@@ -394,13 +395,8 @@ var StatsGet = &cobra.Command{
 
 func WriteSpaced(header string, value uint64) {
 	valString := fmt.Sprintf("%d", value)
-	RepeatChar(len(header)-len(valString), " ")
+	fmt.Print(strings.Repeat(" ", len(header)-len(valString)))
 	fmt.Print(valString)
-}
-func RepeatChar(length int, char string) {
-	for i := 0; i < length; i++ {
-		fmt.Printf(char)
-	}
 }
 
 type DeviceWithStats struct {

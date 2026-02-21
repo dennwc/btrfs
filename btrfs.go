@@ -156,28 +156,7 @@ func (f *FS) GetDevStatsWithFlags(id uint64, flags uint64) (out DevStats, err er
 	return
 }
 func (f *FS) GetDevStats(id uint64) (out DevStats, err error) {
-	var arg btrfs_ioctl_get_dev_stats
-	arg.devid = id
-	arg.nr_items = _BTRFS_DEV_STAT_VALUES_MAX
-	arg.flags = 0
-	if err = ioctl.Do(f.f, _BTRFS_IOC_GET_DEV_STATS, &arg); err != nil {
-		return
-	}
-	i := 0
-	out.WriteErrs = arg.values[i]
-	i++
-	out.ReadErrs = arg.values[i]
-	i++
-	out.FlushErrs = arg.values[i]
-	i++
-	out.CorruptionErrs = arg.values[i]
-	i++
-	out.GenerationErrs = arg.values[i]
-	i++
-	if int(arg.nr_items) > i {
-		out.Unknown = arg.values[i:arg.nr_items]
-	}
-	return
+	return f.GetDevStatsWithFlags(id, 0)
 }
 func (f *FS) ResetDevStats(id uint64) (err error) {
 	var arg btrfs_ioctl_get_dev_stats
